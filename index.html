@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Archipelago (Arhipelag) - Daily Island Puzzle</title>
+  <meta name="description" content="5-minute daily hexagonal island building puzzle game.">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Plus Jakarta Sans", sans-serif;
+      background: linear-gradient(180deg, #082f49 0%, #030712 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+    header {
+      background: rgba(8, 47, 73, 0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(14, 116, 144, 0.6);
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.15rem; }
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      background: rgba(14, 116, 144, 0.6);
+      color: #fef08a;
+      border-radius: 6px;
+      font-family: monospace;
+      font-weight: 700;
+      border: 1px solid rgba(250, 204, 21, 0.3);
+    }
+    .controls { display: flex; gap: 6px; align-items: center; }
+    button.btn {
+      background: #0369a1;
+      color: #fff;
+      border: 1px solid #0284c7;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    button.btn:active { transform: scale(0.96); }
+    .btn-gold { background: #f59e0b; color: #020617; border-color: #fbbf24; }
+    
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      max-width: 600px;
+      margin: 10px auto 4px auto;
+      width: 100%;
+      padding: 0 12px;
+    }
+    .hud-card {
+      background: rgba(12, 74, 110, 0.55);
+      border: 1px solid rgba(14, 116, 144, 0.6);
+      border-radius: 12px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    .hud-title { font-size: 0.65rem; color: #7dd3fc; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+    .hud-val { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+    .rule-banner {
+      max-width: 600px;
+      width: 100%;
+      margin: 6px auto 4px auto;
+      padding: 0 12px;
+    }
+    .rule-banner-box {
+      background: linear-gradient(90deg, rgba(245, 158, 11, 0.22) 0%, rgba(12, 74, 110, 0.7) 50%, rgba(245, 158, 11, 0.22) 100%);
+      border: 1px solid rgba(251, 191, 36, 0.5);
+      border-radius: 12px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+    .rule-banner-box .icon { font-size: 1.4rem; }
+    .rule-banner-box .title { font-weight: 800; color: #fef08a; }
+    .rule-banner-box .desc { color: #e0f2fe; margin-top: 1px; line-height: 1.3; }
+
+    .board-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 4px 12px;
+    }
+    .board-card {
+      background: radial-gradient(circle at center, #075985 0%, #032b43 85%, #021727 100%);
+      border: 1px solid #0284c7;
+      border-radius: 24px;
+      width: 100%;
+      aspect-ratio: 580 / 600;
+      position: relative;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+    }
+    svg.hex-svg { width: 100%; height: 100%; }
+    
+    .tray {
+      max-width: 600px;
+      margin: 4px auto 12px auto;
+      width: 100%;
+      padding: 0 12px;
+    }
+    .tray-card {
+      background: rgba(12, 74, 110, 0.65);
+      border: 1px solid rgba(14, 116, 144, 0.6);
+      border-radius: 16px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .tile-slot {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .tile-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: #0369a1;
+      border: 2px solid #fbbf24;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    .tile-info { text-align: left; }
+    .tile-info .kicker { font-size: 0.65rem; color: #fde047; text-transform: uppercase; font-weight: 700; }
+    .tile-info .name { font-size: 1.05rem; font-weight: 800; color: #fff; }
+    .tile-info .desc { font-size: 0.72rem; color: #bae6fd; margin-top: 1px; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.88);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      padding: 16px;
+    }
+    .modal-box {
+      background: #082f49;
+      border: 1px solid #0284c7;
+      border-radius: 24px;
+      padding: 22px;
+      max-width: 480px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.7);
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span>🏝️ Arhipelag</span>
+      <span class="badge" id="day-badge">#Daily</span>
+    </div>
+    <div class="controls">
+      <button class="btn" id="lang-btn" onclick="toggleLanguage()">🌐 BS / EN</button>
+      <button class="btn" id="sound-btn" onclick="toggleSound()">🔊 Zvuk</button>
+      <button class="btn btn-gold" onclick="openRules()">📖 Pravila</button>
+    </div>
+  </header>
+
+  <div class="hud">
+    <div class="hud-card">
+      <div class="hud-title" id="lbl-score">Bodovi</div>
+      <div class="hud-val" id="score-val">0</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-title" id="lbl-tiles">Postavljeno</div>
+      <div class="hud-val" id="tiles-val">0 / 20</div>
+    </div>
+    <div class="hud-card" style="cursor:pointer;" onclick="openRules()">
+      <div class="hud-title" id="lbl-rule">Pravilo dana</div>
+      <div class="hud-val" style="font-size: 0.85rem; font-weight: 800; margin-top: 4px;" id="rule-name">Sezona oluja</div>
+    </div>
+  </div>
+
+  <div class="rule-banner" onclick="openRules()">
+    <div class="rule-banner-box">
+      <div class="icon" id="banner-emoji">🌩️</div>
+      <div>
+        <div class="title" id="banner-title">Dnevno pravilo: Sezona oluja</div>
+        <div class="desc" id="banner-desc">Snažni okeanski vjetrovi! Pločice na vanjskom rubu mape gube po 1 bod.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-container">
+    <div class="board-card">
+      <svg class="hex-svg" id="hex-svg" viewBox="-290 -300 580 600"></svg>
+    </div>
+  </div>
+
+  <div class="tray">
+    <div class="tray-card">
+      <div class="tile-slot">
+        <div class="tile-avatar" id="current-emoji">🌲</div>
+        <div class="tile-info">
+          <div class="kicker" id="current-kicker">Trenutna pločica</div>
+          <div class="name" id="current-name">Šuma</div>
+          <div class="desc" id="current-rule">+5 bodova za grupu od 4+ šume</div>
+        </div>
+      </div>
+      <div id="queue-preview" style="display: flex; gap: 4px;"></div>
+    </div>
+  </div>
+
+  <div id="game-over-modal" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div style="font-size: 3rem; margin-bottom: 6px;">🏝️</div>
+      <h2 id="modal-title" style="font-size: 1.6rem; font-weight: 800; margin-bottom: 4px;">Ostrvo je završeno!</h2>
+      <p id="modal-sub" style="font-size: 0.8rem; color: #7dd3fc; margin-bottom: 16px;">Postavljeno je svih 20 pločica</p>
+      
+      <div style="background: rgba(3, 105, 161, 0.4); border: 1px solid #0284c7; border-radius: 14px; padding: 14px; margin-bottom: 14px;">
+        <div style="font-size: 0.72rem; color: #facc15; font-weight: 700; text-transform: uppercase;">Konačni rezultat</div>
+        <div id="final-score" style="font-size: 3rem; font-weight: 900; line-height: 1.1;">0</div>
+        <div id="final-percentile" style="font-size: 0.82rem; color: #86efac; margin-top: 4px; font-weight: 700;">Među najboljih 8% na svijetu danas</div>
+      </div>
+
+      <div id="score-details" style="font-size: 0.78rem; text-align: left; background: rgba(2, 6, 23, 0.5); padding: 12px; border-radius: 10px; margin-bottom: 16px; line-height: 1.6;"></div>
+
+      <button class="btn btn-gold" style="width: 100%; padding: 12px; font-size: 1rem; margin-bottom: 8px; justify-content: center;" onclick="shareResult()">
+        📤 <span id="btn-share-txt">Podijeli rezultat</span>
+      </button>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+        <button class="btn" style="padding: 10px; justify-content: center;" onclick="closeModal()">Pregledaj ostrvo</button>
+        <button class="btn" style="padding: 10px; background: #0f766e; border-color: #14b8a6; justify-content: center;" onclick="startPractice()">Trening mod</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rules-modal" class="modal-backdrop hidden">
+    <div class="modal-box" style="text-align: left;">
+      <h3 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 8px;">📖 Pravila igre Arhipelag</h3>
+      <p style="font-size: 0.8rem; color: #bae6fd; margin-bottom: 12px;">Postavi 20 pločica na heksagonalnu mrežu. Susjedstvo donosi bodove:</p>
+      <ul style="font-size: 0.78rem; line-height: 1.65; margin-bottom: 14px; padding-left: 18px;">
+        <li>🏡🌾 <b>Selo uz polje</b>: +3 boda</li>
+        <li>🏡💧 <b>Selo uz jezero</b>: +2 boda</li>
+        <li>🏡⛰️ <b>Selo uz planinu</b>: -2 boda (Opasnost od lavine!)</li>
+        <li>🌲🌲 <b>Grupa od 4+ šume</b>: +5 bodova</li>
+        <li>⛰️🌲 <b>Planina uz 2+ šume</b>: +4 boda</li>
+        <li>⛵🌊 <b>Luka koja dodiruje more</b>: +3 boda</li>
+      </ul>
+      <div style="background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; padding: 10px 12px; border-radius: 10px; font-size: 0.8rem; margin-bottom: 16px;">
+        <b>Današnje pravilo:</b> <span id="rules-daily-desc"></span>
+      </div>
+      <button class="btn btn-gold" style="width: 100%; padding: 10px; justify-content: center;" onclick="closeRules()">Jasno, idemo graditi!</button>
+    </div>
+  </div>
+
+  <script>
+    let audioCtx = null;
+    let isMuted = false;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioClass) audioCtx = new AudioClass();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    window.addEventListener('touchstart', initAudio, { once: true });
+    window.addEventListener('click', initAudio, { once: true });
+
+    function playSound(type) {
+      if (isMuted) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      const t = audioCtx.currentTime;
+      if (type === 'place') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320 + Math.random() * 40, t);
+        osc.frequency.exponentialRampToValueAtTime(130, t + 0.08);
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.08);
+      } else if (type === 'bonus') {
+        [523.25, 659.25, 783.99].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, t + idx * 0.04);
+          gain.gain.setValueAtTime(0.18, t + idx * 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.04 + 0.25);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(t + idx * 0.04);
+          osc.stop(t + idx * 0.04 + 0.25);
+        });
+      } else if (type === 'penalty') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, t);
+        osc.frequency.exponentialRampToValueAtTime(80, t + 0.22);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.22);
+      } else if (type === 'victory') {
+        [392.00, 493.88, 587.33, 783.99].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, t + idx * 0.1);
+          gain.gain.setValueAtTime(0.25, t + idx * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.1 + 0.6);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(t + idx * 0.1);
+          osc.stop(t + idx * 0.1 + 0.6);
+        });
+      }
+    }
+
+    function toggleSound() {
+      isMuted = !isMuted;
+      document.getElementById('sound-btn').textContent = isMuted ? '🔇 Zvuk' : '🔊 Zvuk';
+      if (!isMuted) playSound('place');
+    }
+
+    let currentLang = 'bs';
+    const I18N = {
+      bs: { score: 'Bodovi', tiles: 'Postavljeno', rule: 'Pravilo dana', kicker: 'Trenutna pločica', share: 'Podijeli rezultat' },
+      en: { score: 'Score', tiles: 'Tiles Placed', rule: 'Daily Rule', kicker: 'Current Tile', share: 'Share Island' }
+    };
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'bs' ? 'en' : 'bs';
+      document.getElementById('lang-btn').textContent = currentLang === 'bs' ? '🌐 BS' : '🌐 EN';
+      updateLanguageUI();
+    }
+
+    function updateLanguageUI() {
+      const texts = I18N[currentLang];
+      document.getElementById('lbl-score').textContent = texts.score;
+      document.getElementById('lbl-tiles').textContent = texts.tiles;
+      document.getElementById('lbl-rule').textContent = texts.rule;
+      document.getElementById('current-kicker').textContent = texts.kicker;
+      document.getElementById('btn-share-txt').textContent = texts.share;
+      renderBoard();
+    }
+
+    const RULES = [
+      { id: 'STORM_SEASON', emoji: '🌩️', nameBs: 'Sezona oluja', descBs: 'Snažni vjetrovi! Pločice na vanjskom rubu mape gube po 1 bod.', nameEn: 'Storm Season', descEn: 'Coastal gales! Tiles placed on the outer edge lose 1 point each.' },
+      { id: 'VILLAGE_FAIR', emoji: '🎪', nameBs: 'Seoski festival', descBs: 'Slavlje u selima! Svako selo dobija +1 dodatni bod od susjednih polja i jezera.', nameEn: 'Village Festival', descEn: 'Festivities! Villages get +1 extra point from neighboring fields and lakes.' },
+      { id: 'FOREST_SANCTUARY', emoji: '🌲', nameBs: 'Drevne šume', descBs: 'Bujna priroda! Grupa od 4+ šuma donosi +10 umjesto +5 bodova.', nameEn: 'Ancient Woodlands', descEn: 'Lush groves! Connected forest groups of 4+ tiles award +10 points instead of +5.' },
+      { id: 'TRADING_BOOM', emoji: '⚓', nameBs: 'Pomorska trgovina', descBs: 'Trgovina cvjeta! Luke koje dodiruju more donose +6 umjesto +3 boda.', nameEn: 'Maritime Trade', descEn: 'Booming trade! Ports touching the sea earn +6 points instead of +3.' },
+      { id: 'VOLCANIC_SOIL', emoji: '🌋', nameBs: 'Plodne padine', descBs: 'Topla vulkanska zemlja! Planine uz polja donose +3 dodatna boda.', nameEn: 'Volcanic Slopes', descEn: 'Mineral rich! Mountains touching fields give +3 bonus points.' },
+      { id: 'PEACEFUL_VALLEYS', emoji: '🕊️', nameBs: 'Mirne doline', descBs: 'Nema lavina! Planine danas ne oduzimaju bodove obližnjim selima.', nameEn: 'Peaceful Valleys', descEn: 'Calm slopes! Mountains do not penalize adjacent villages today.' },
+      { id: 'AQUEDUCT_ERA', emoji: '💧', nameBs: 'Mreža kanala', descBs: 'Vodni putevi! Svako jezero uz drugo jezero donosi +3 dodatna boda.', nameEn: 'Canal Network', descEn: 'Waterways! Adjacent lakes grant +3 bonus points each.' }
+    ];
+
+    function hashStr(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0; }
+      return Math.abs(h);
+    }
+
+    function getTodayString() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    const todayStr = getTodayString();
+    const dailyRuleIndex = hashStr("rule-" + todayStr) % RULES.length;
+    const activeRule = RULES[dailyRuleIndex];
+
+    const TILES = {
+      FOREST: { emoji: '🌲', nameBs: 'Šuma', nameEn: 'Forest', color: '#15803d', descBs: '+5 bodova za grupu od 4+', descEn: '+5 pts for 4+ grove' },
+      MOUNTAIN: { emoji: '⛰️', nameBs: 'Planina', nameEn: 'Mountain', color: '#475569', descBs: '+4 boda uz 2+ šume', descEn: '+4 pts nestled in forest' },
+      FIELD: { emoji: '🌾', nameBs: 'Polje', nameEn: 'Field', color: '#d97706', descBs: '+3 boda uz svako selo', descEn: '+3 pts next to village' },
+      VILLAGE: { emoji: '🏡', nameBs: 'Selo', nameEn: 'Village', color: '#ea580c', descBs: 'Traži polja i jezera', descEn: 'Wants fields & lakes' },
+      LAKE: { emoji: '💧', nameBs: 'Jezero', nameEn: 'Lake', color: '#0284c7', descBs: '+2 boda uz svako selo', descEn: '+2 pts next to village' },
+      PORT: { emoji: '⛵', nameBs: 'Luka', nameEn: 'Port', color: '#0f766e', descBs: '+3 boda uz otvoreno more', descEn: '+3 pts touching sea' }
+    };
+
+    const DIRS = [
+      {q:1, r:0}, {q:1, r:-1}, {q:0, r:-1},
+      {q:-1, r:0}, {q:-1, r:1}, {q:0, r:1}
+    ];
+
+    function mulberry32(seed) {
+      return function() {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function createGrid() {
+      const coords = [];
+      for (let r = -2; r <= 2; r++) {
+        const q1 = Math.max(-2, -r - 2);
+        const q2 = Math.min(2, -r + 2);
+        for (let q = q1; q <= q2; q++) coords.push({q, r});
+      }
+      coords.push({q: 0, r: -3}, {q: 2, r: -3}, {q: 3, r: -1}, {q: -1, r: 3}, {q: -3, r: 1});
+
+      const set = new Set(coords.map(c => `${c.q},${c.r}`));
+      return coords.map((c) => {
+        let isPerimeter = false;
+        for (const d of DIRS) {
+          if (!set.has(`${c.q + d.q},${c.r + d.r}`)) { isPerimeter = true; break; }
+        }
+        return { id: `hex_${c.q}_${c.r}`, q: c.q, r: c.r, tile: null, isPerimeter };
+      });
+    }
+
+    let board = createGrid();
+    let turn = 0;
+    let pool = [];
+
+    function initDeck(seedStr) {
+      const rng = mulberry32(hashStr("tiles-" + seedStr));
+      pool = [
+        'FOREST','FOREST','FOREST','FOREST',
+        'MOUNTAIN','MOUNTAIN','MOUNTAIN',
+        'FIELD','FIELD','FIELD','FIELD',
+        'VILLAGE','VILLAGE','VILLAGE','VILLAGE',
+        'LAKE','LAKE','LAKE',
+        'PORT','PORT'
+      ];
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+    }
+    initDeck(todayStr);
+
+    const R = 48;
+    function getHexPoints(cx, cy, radius = R) {
+      const pts = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (60 * i - 30) * Math.PI / 180;
+        pts.push(`${(cx + radius * Math.cos(a)).toFixed(1)},${(cy + radius * Math.sin(a)).toFixed(1)}`);
+      }
+      return pts.join(' ');
+    }
+
+    function calcScore() {
+      const map = new Map();
+      board.forEach(c => map.set(`${c.q},${c.r}`, c));
+      let pts = 0;
+      let vf = 0, vl = 0, vm = 0, mf = 0, ps = 0, stormPenalty = 0;
+
+      board.forEach(c => {
+        if (!c.tile) return;
+        const neighbors = [];
+        let openWater = 0;
+        DIRS.forEach(d => {
+          const n = map.get(`${c.q + d.q},${c.r + d.r}`);
+          if (n && n.tile) neighbors.push(n);
+          else openWater++;
+        });
+
+        if (c.tile === 'VILLAGE') {
+          neighbors.forEach(n => {
+            if (n.tile === 'FIELD') {
+              const val = activeRule.id === 'VILLAGE_FAIR' ? 4 : 3;
+              pts += val; vf += val;
+            }
+            if (n.tile === 'LAKE') {
+              const val = activeRule.id === 'VILLAGE_FAIR' ? 3 : 2;
+              pts += val; vl += val;
+            }
+            if (n.tile === 'MOUNTAIN') {
+              if (activeRule.id !== 'PEACEFUL_VALLEYS') { pts -= 2; vm -= 2; }
+            }
+          });
+        }
+        if (c.tile === 'MOUNTAIN') {
+          if (neighbors.filter(n => n.tile === 'FOREST').length >= 2) {
+            pts += 4; mf += 4;
+          }
+          if (activeRule.id === 'VOLCANIC_SOIL') {
+            const fields = neighbors.filter(n => n.tile === 'FIELD').length;
+            pts += fields * 3;
+          }
+        }
+        if (c.tile === 'PORT') {
+          if (openWater > 0) {
+            const val = activeRule.id === 'TRADING_BOOM' ? 6 : 3;
+            pts += val; ps += val;
+          }
+        }
+
+        if (activeRule.id === 'STORM_SEASON' && c.isPerimeter) {
+          pts -= 1;
+          stormPenalty -= 1;
+        }
+      });
+
+      let fc = 0;
+      const visited = new Set();
+      board.forEach(c => {
+        if (c.tile === 'FOREST' && !visited.has(`${c.q},${c.r}`)) {
+          let size = 0;
+          const q = [c];
+          visited.add(`${c.q},${c.r}`);
+          while (q.length > 0) {
+            const cur = q.shift();
+            size++;
+            DIRS.forEach(d => {
+              const key = `${cur.q + d.q},${cur.r + d.r}`;
+              const n = map.get(key);
+              if (n && n.tile === 'FOREST' && !visited.has(key)) {
+                visited.add(key);
+                q.push(n);
+              }
+            });
+          }
+          if (size >= 4) {
+            const val = activeRule.id === 'FOREST_SANCTUARY' ? 10 : 5;
+            pts += val; fc += val;
+          }
+        }
+      });
+
+      return { total: pts, vf, vl, vm, mf, ps, fc, stormPenalty };
+    }
+
+    function renderBoard() {
+      const rName = currentLang === 'bs' ? activeRule.nameBs : activeRule.nameEn;
+      const rDesc = currentLang === 'bs' ? activeRule.descBs : activeRule.descEn;
+      document.getElementById('rule-name').textContent = rName;
+      document.getElementById('banner-emoji').textContent = activeRule.emoji;
+      document.getElementById('banner-title').textContent = (currentLang === 'bs' ? 'Dnevno pravilo: ' : 'Daily Rule: ') + rName;
+      document.getElementById('banner-desc').textContent = rDesc;
+      document.getElementById('rules-daily-desc').textContent = `${activeRule.emoji} ${rName} - ${rDesc}`;
+
+      const svg = document.getElementById('hex-svg');
+      svg.innerHTML = '';
+
+      board.forEach(cell => {
+        const cx = R * (Math.sqrt(3) * cell.q + Math.sqrt(3)/2 * cell.r);
+        const cy = R * (1.5 * cell.r);
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.style.cursor = (!cell.tile && turn < 20) ? 'pointer' : 'default';
+        g.onclick = () => placeTile(cell.id);
+
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', getHexPoints(cx, cy, R - 2));
+        poly.setAttribute('fill', cell.tile ? TILES[cell.tile].color : 'rgba(3, 105, 161, 0.45)');
+        poly.setAttribute('stroke', cell.tile ? '#f8fafc' : (cell.isPerimeter && activeRule.id === 'STORM_SEASON') ? '#38bdf8' : '#0284c7');
+        poly.setAttribute('stroke-width', '1.5');
+        if (!cell.tile && cell.isPerimeter && activeRule.id === 'STORM_SEASON') {
+          poly.setAttribute('stroke-dasharray', '3 2');
+        }
+        g.appendChild(poly);
+
+        if (cell.tile) {
+          const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          txt.setAttribute('x', cx);
+          txt.setAttribute('y', cy + 7);
+          txt.setAttribute('text-anchor', 'middle');
+          txt.setAttribute('font-size', '23');
+          txt.textContent = TILES[cell.tile].emoji;
+          g.appendChild(txt);
+
+          if (activeRule.id === 'STORM_SEASON' && cell.isPerimeter) {
+            const badge = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            badge.setAttribute('x', cx);
+            badge.setAttribute('y', cy + R - 10);
+            badge.setAttribute('text-anchor', 'middle');
+            badge.setAttribute('font-size', '9');
+            badge.setAttribute('font-weight', 'bold');
+            badge.setAttribute('fill', '#f87171');
+            badge.textContent = '🌩️ -1';
+            g.appendChild(badge);
+          }
+        } else {
+          if (activeRule.id === 'STORM_SEASON' && cell.isPerimeter) {
+            const stormInd = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            stormInd.setAttribute('x', cx);
+            stormInd.setAttribute('y', cy + 5);
+            stormInd.setAttribute('text-anchor', 'middle');
+            stormInd.setAttribute('font-size', '13');
+            stormInd.setAttribute('opacity', '0.4');
+            stormInd.textContent = '🌩️';
+            g.appendChild(stormInd);
+          }
+        }
+        svg.appendChild(g);
+      });
+
+      const res = calcScore();
+      document.getElementById('score-val').textContent = res.total;
+      document.getElementById('tiles-val').textContent = `${turn} / 20`;
+
+      if (turn < 20) {
+        const cur = TILES[pool[turn]];
+        document.getElementById('current-emoji').textContent = cur.emoji;
+        document.getElementById('current-name').textContent = currentLang === 'bs' ? cur.nameBs : cur.nameEn;
+        document.getElementById('current-rule').textContent = currentLang === 'bs' ? cur.descBs : cur.descEn;
+
+        const qEl = document.getElementById('queue-preview');
+        qEl.innerHTML = '';
+        pool.slice(turn + 1, turn + 4).forEach((tType) => {
+          const div = document.createElement('div');
+          div.style.cssText = 'width: 34px; height: 34px; border-radius: 8px; background: rgba(8,47,73,0.8); border: 1px solid #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;';
+          div.textContent = TILES[tType].emoji;
+          qEl.appendChild(div);
+        });
+      }
+    }
+
+    function placeTile(cellId) {
+      if (turn >= 20) return;
+      const cell = board.find(c => c.id === cellId);
+      if (!cell || cell.tile) return;
+
+      const prevScore = calcScore().total;
+      cell.tile = pool[turn];
+      turn++;
+      playSound('place');
+
+      const nextScore = calcScore().total;
+      setTimeout(() => {
+        if (nextScore > prevScore) playSound('bonus');
+        else if (nextScore < prevScore) playSound('penalty');
+      }, 100);
+
+      renderBoard();
+
+      if (turn >= 20) {
+        setTimeout(showGameOver, 400);
+      }
+    }
+
+    function showGameOver() {
+      playSound('victory');
+      const res = calcScore();
+      document.getElementById('final-score').textContent = res.total;
+      
+      let breakdownHtml = `
+        <div>🏡🌾 Sela uz polja: <b>+${res.vf}</b></div>
+        <div>🏡💧 Sela uz jezera: <b>+${res.vl}</b></div>
+        ${res.vm !== 0 ? `<div style="color:#f87171">🏡⛰️ Lavine uz planine: <b>${res.vm}</b></div>` : ''}
+        <div>🌲🌲 Grupe šuma (4+): <b>+${res.fc}</b></div>
+        <div>⛰️🌲 Planine u šumi: <b>+${res.mf}</b></div>
+        <div>⛵🌊 Luke uz more: <b>+${res.ps}</b></div>
+        ${res.stormPenalty !== 0 ? `<div style="color:#f87171">🌩️ Sezona oluja (rubne pločice): <b>${res.stormPenalty}</b></div>` : ''}
+      `;
+      document.getElementById('score-details').innerHTML = breakdownHtml;
+      document.getElementById('game-over-modal').classList.remove('hidden');
+    }
+
+    function closeModal() { document.getElementById('game-over-modal').classList.add('hidden'); }
+    function openRules() { document.getElementById('rules-modal').classList.remove('hidden'); }
+    function closeRules() { document.getElementById('rules-modal').classList.add('hidden'); }
+
+    function startPractice() {
+      closeModal();
+      board = createGrid();
+      turn = 0;
+      initDeck(Date.now().toString());
+      renderBoard();
+    }
+
+    function shareResult() {
+      const res = calcScore();
+      const text = `🏝️ Arhipelag\n🏆 Bodovi: ${res.total} pts\n🧩 20/20 pločica\nIgraj besplatno: ${window.location.href}`;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text);
+        document.getElementById('btn-share-txt').textContent = currentLang === 'bs' ? "Kopirano!" : "Copied!";
+        setTimeout(() => document.getElementById('btn-share-txt').textContent = currentLang === 'bs' ? "Podijeli rezultat" : "Share Island", 2200);
+      }
+    }
+
+    renderBoard();
+  </script>
+</body>
+</html>
