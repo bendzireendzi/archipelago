@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Archipelago - Daily Island Puzzle</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(180deg, #082f49 0%, #030712 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+    header {
+      background: rgba(8, 47, 73, 0.85);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(14, 116, 144, 0.5);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.15rem; }
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      background: rgba(14, 116, 144, 0.6);
+      color: #fef08a;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .controls { display: flex; gap: 6px; align-items: center; }
+    button.btn {
+      background: #0369a1;
+      color: #fff;
+      border: 1px solid #0284c7;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    button.btn:active { transform: scale(0.96); }
+    .btn-gold { background: #f59e0b; color: #020617; border-color: #fbbf24; }
+    
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      max-width: 600px;
+      margin: 10px auto 4px auto;
+      width: 100%;
+      padding: 0 12px;
+    }
+    .hud-card {
+      background: rgba(12, 74, 110, 0.5);
+      border: 1px solid rgba(14, 116, 144, 0.6);
+      border-radius: 12px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    .hud-title { font-size: 0.65rem; color: #7dd3fc; text-transform: uppercase; font-weight: 700; }
+    .hud-val { font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    
+    .board-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 6px 12px;
+    }
+    .board-card {
+      background: radial-gradient(circle at center, #075985 0%, #032b43 85%, #021727 100%);
+      border: 1px solid #0284c7;
+      border-radius: 24px;
+      width: 100%;
+      aspect-ratio: 580 / 600;
+      position: relative;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+    }
+    svg.hex-svg { width: 100%; height: 100%; }
+    
+    .tray {
+      max-width: 600px;
+      margin: 4px auto 14px auto;
+      width: 100%;
+      padding: 0 12px;
+    }
+    .tray-card {
+      background: rgba(12, 74, 110, 0.6);
+      border: 1px solid rgba(14, 116, 144, 0.6);
+      border-radius: 16px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tile-slot {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .tile-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: #0369a1;
+      border: 2px solid #fbbf24;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+    }
+    .tile-info { text-align: left; }
+    .tile-info .name { font-size: 1rem; font-weight: 700; }
+    .tile-info .desc { font-size: 0.75rem; color: #bae6fd; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.85);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      padding: 16px;
+    }
+    .modal-box {
+      background: #082f49;
+      border: 1px solid #0284c7;
+      border-radius: 20px;
+      padding: 20px;
+      max-width: 480px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      text-align: center;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span>🏝️ Archipelago</span>
+      <span class="badge" id="day-badge">#Daily</span>
+    </div>
+    <div class="controls">
+      <button class="btn btn-gold" onclick="openRules()">📖 Rules</button>
+    </div>
+  </header>
+
+  <div class="hud">
+    <div class="hud-card">
+      <div class="hud-title">Score</div>
+      <div class="hud-val" id="score-val">0</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-title">Tiles Placed</div>
+      <div class="hud-val" id="tiles-val">0 / 20</div>
+    </div>
+    <div class="hud-card" style="cursor:pointer;" onclick="openRules()">
+      <div class="hud-title">Daily Rule</div>
+      <div class="hud-val" style="font-size: 0.85rem; font-weight: 700; margin-top: 4px;" id="rule-name">Storm Season</div>
+    </div>
+  </div>
+
+  <div class="board-container">
+    <div class="board-card">
+      <svg class="hex-svg" id="hex-svg" viewBox="-290 -300 580 600"></svg>
+    </div>
+  </div>
+
+  <div class="tray">
+    <div class="tray-card">
+      <div class="tile-slot">
+        <div class="tile-avatar" id="current-emoji">🌲</div>
+        <div class="tile-info">
+          <div class="name" id="current-name">Forest</div>
+          <div class="desc" id="current-rule">Groups of 4+ give 5 pts</div>
+        </div>
+      </div>
+      <div id="queue-preview" style="display: flex; gap: 4px;"></div>
+    </div>
+  </div>
+
+  <div id="game-over-modal" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div style="font-size: 3rem; margin-bottom: 8px;">🏝️</div>
+      <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 4px;">Island Completed!</h2>
+      <p style="font-size: 0.8rem; color: #7dd3fc; margin-bottom: 16px;">All 20 tiles placed</p>
+      
+      <div style="background: rgba(3, 105, 161, 0.4); border: 1px solid #0284c7; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+        <div style="font-size: 0.75rem; color: #facc15; font-weight: 700; text-transform: uppercase;">Final Score</div>
+        <div id="final-score" style="font-size: 2.8rem; font-weight: 900; line-height: 1.1;">0</div>
+        <div id="final-percentile" style="font-size: 0.8rem; color: #86efac; margin-top: 4px; font-weight: 600;">Top 8% worldwide today</div>
+      </div>
+
+      <button class="btn btn-gold" style="width: 100%; padding: 12px; font-size: 0.95rem; margin-bottom: 8px;" onclick="shareResult()">
+        📤 <span id="btn-share-txt">Share Island</span>
+      </button>
+      <button class="btn" style="width: 100%; padding: 10px;" onclick="closeModal()">Close & Review</button>
+    </div>
+  </div>
+
+  <div id="rules-modal" class="modal-backdrop hidden">
+    <div class="modal-box" style="text-align: left;">
+      <h3 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 8px;">📖 Archipelago Rules</h3>
+      <p style="font-size: 0.8rem; color: #bae6fd; margin-bottom: 12px;">Place 20 daily tiles on the hexagonal grid:</p>
+      <ul style="font-size: 0.75rem; line-height: 1.6; margin-bottom: 16px; padding-left: 16px;">
+        <li>🏡🌾 <b>Village next to Field</b>: +3 points</li>
+        <li>🏡💧 <b>Village next to Lake</b>: +2 points</li>
+        <li>🏡⛰️ <b>Village next to Mountain</b>: -2 points (Avalanche danger!)</li>
+        <li>🌲🌲 <b>Group of 4+ Forests</b>: +5 points</li>
+        <li>⛰️🌲 <b>Mountain nestled in 2+ Forests</b>: +4 points</li>
+        <li>⛵🌊 <b>Port touching Sea</b>: +3 points</li>
+      </ul>
+      <button class="btn btn-gold" style="width: 100%; padding: 10px;" onclick="closeRules()">Got it!</button>
+    </div>
+  </div>
+
+  <script>
+    const TILES = {
+      FOREST: { emoji: '🌲', name: 'Forest', color: '#15803d', desc: '+5 pts for 4+ grove' },
+      MOUNTAIN: { emoji: '⛰️', name: 'Mountain', color: '#475569', desc: '+4 pts nestled in forest' },
+      FIELD: { emoji: '🌾', name: 'Field', color: '#d97706', desc: '+3 pts next to village' },
+      VILLAGE: { emoji: '🏡', name: 'Village', color: '#ea580c', desc: 'Wants fields & lakes' },
+      LAKE: { emoji: '💧', name: 'Lake', color: '#0284c7', desc: '+2 pts next to village' },
+      PORT: { emoji: '⛵', name: 'Port', color: '#0f766e', desc: '+3 pts touching sea' }
+    };
+
+    const DIRS = [
+      {q:1, r:0}, {q:1, r:-1}, {q:0, r:-1},
+      {q:-1, r:0}, {q:-1, r:1}, {q:0, r:1}
+    ];
+
+    function mulberry32(seed) {
+      return function() {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function getTodayString() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function hashStr(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0; }
+      return Math.abs(h);
+    }
+
+    function createGrid() {
+      const coords = [];
+      for (let r = -2; r <= 2; r++) {
+        const q1 = Math.max(-2, -r - 2);
+        const q2 = Math.min(2, -r + 2);
+        for (let q = q1; q <= q2; q++) coords.push({q, r});
+      }
+      coords.push({q: 0, r: -3}, {q: 2, r: -3}, {q: 3, r: -1}, {q: -1, r: 3}, {q: -3, r: 1});
+      return coords.map((c) => ({ id: `hex_${c.q}_${c.r}`, q: c.q, r: c.r, tile: null }));
+    }
+
+    let board = createGrid();
+    let turn = 0;
+    const todayStr = getTodayString();
+    const rng = mulberry32(hashStr("tiles-" + todayStr));
+    const pool = [
+      'FOREST','FOREST','FOREST','FOREST',
+      'MOUNTAIN','MOUNTAIN','MOUNTAIN',
+      'FIELD','FIELD','FIELD','FIELD',
+      'VILLAGE','VILLAGE','VILLAGE','VILLAGE',
+      'LAKE','LAKE','LAKE',
+      'PORT','PORT'
+    ];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+
+    const R = 48;
+    function getHexPoints(cx, cy, radius = R) {
+      const pts = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (60 * i - 30) * Math.PI / 180;
+        pts.push(`${(cx + radius * Math.cos(a)).toFixed(1)},${(cy + radius * Math.sin(a)).toFixed(1)}`);
+      }
+      return pts.join(' ');
+    }
+
+    function calcScore() {
+      const map = new Map();
+      board.forEach(c => map.set(`${c.q},${c.r}`, c));
+      let pts = 0;
+
+      board.forEach(c => {
+        if (!c.tile) return;
+        const neighbors = [];
+        let openWater = 0;
+        DIRS.forEach(d => {
+          const n = map.get(`${c.q + d.q},${c.r + d.r}`);
+          if (n && n.tile) neighbors.push(n);
+          else openWater++;
+        });
+
+        if (c.tile === 'VILLAGE') {
+          neighbors.forEach(n => {
+            if (n.tile === 'FIELD') pts += 3;
+            if (n.tile === 'LAKE') pts += 2;
+            if (n.tile === 'MOUNTAIN') pts -= 2;
+          });
+        }
+        if (c.tile === 'MOUNTAIN') {
+          if (neighbors.filter(n => n.tile === 'FOREST').length >= 2) pts += 4;
+        }
+        if (c.tile === 'PORT') {
+          if (openWater > 0) pts += 3;
+        }
+      });
+
+      const visited = new Set();
+      board.forEach(c => {
+        if (c.tile === 'FOREST' && !visited.has(`${c.q},${c.r}`)) {
+          let size = 0;
+          const q = [c];
+          visited.add(`${c.q},${c.r}`);
+          while (q.length > 0) {
+            const cur = q.shift();
+            size++;
+            DIRS.forEach(d => {
+              const key = `${cur.q + d.q},${cur.r + d.r}`;
+              const n = map.get(key);
+              if (n && n.tile === 'FOREST' && !visited.has(key)) {
+                visited.add(key);
+                q.push(n);
+              }
+            });
+          }
+          if (size >= 4) pts += 5;
+        }
+      });
+
+      return pts;
+    }
+
+    function renderBoard() {
+      const svg = document.getElementById('hex-svg');
+      svg.innerHTML = '';
+      board.forEach(cell => {
+        const cx = R * (Math.sqrt(3) * cell.q + Math.sqrt(3)/2 * cell.r);
+        const cy = R * (1.5 * cell.r);
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.style.cursor = (!cell.tile && turn < 20) ? 'pointer' : 'default';
+        g.onclick = () => placeTile(cell.id);
+
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', getHexPoints(cx, cy, R - 2));
+        poly.setAttribute('fill', cell.tile ? TILES[cell.tile].color : 'rgba(3, 105, 161, 0.4)');
+        poly.setAttribute('stroke', cell.tile ? '#f8fafc' : '#0284c7');
+        poly.setAttribute('stroke-width', '1.5');
+        g.appendChild(poly);
+
+        if (cell.tile) {
+          const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          txt.setAttribute('x', cx);
+          txt.setAttribute('y', cy + 7);
+          txt.setAttribute('text-anchor', 'middle');
+          txt.setAttribute('font-size', '22');
+          txt.textContent = TILES[cell.tile].emoji;
+          g.appendChild(txt);
+        }
+        svg.appendChild(g);
+      });
+
+      const score = calcScore();
+      document.getElementById('score-val').textContent = score;
+      document.getElementById('tiles-val').textContent = `${turn} / 20`;
+
+      if (turn < 20) {
+        const cur = TILES[pool[turn]];
+        document.getElementById('current-emoji').textContent = cur.emoji;
+        document.getElementById('current-name').textContent = cur.name;
+        document.getElementById('current-rule').textContent = cur.desc;
+      }
+    }
+
+    function placeTile(cellId) {
+      if (turn >= 20) return;
+      const cell = board.find(c => c.id === cellId);
+      if (!cell || cell.tile) return;
+      cell.tile = pool[turn];
+      turn++;
+      renderBoard();
+
+      if (turn >= 20) {
+        setTimeout(showGameOver, 400);
+      }
+    }
+
+    function showGameOver() {
+      const finalScore = calcScore();
+      document.getElementById('final-score').textContent = finalScore;
+      document.getElementById('game-over-modal').classList.remove('hidden');
+    }
+
+    function closeModal() { document.getElementById('game-over-modal').classList.add('hidden'); }
+    function openRules() { document.getElementById('rules-modal').classList.remove('hidden'); }
+    function closeRules() { document.getElementById('rules-modal').classList.add('hidden'); }
+    function shareResult() {
+      const text = `🏝️ Archipelago\nScore: ${calcScore()} pts\nPlayed daily on https://archipelago.app`;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text);
+        document.getElementById('btn-share-txt').textContent = "Copied to clipboard!";
+        setTimeout(() => document.getElementById('btn-share-txt').textContent = "Share Island", 2000);
+      }
+    }
+
+    renderBoard();
+  </script>
+</body>
+</html>
