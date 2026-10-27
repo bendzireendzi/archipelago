@@ -1,1 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Archipelago - Daily Hexagonal Island Puzzle</title>
+  <meta name="description" content="Archipelago is a 5-minute daily hexagonal island-building puzzle game. Place 30 seeded tiles on a 37-cell grid, adapt to daily modifiers, and compete worldwide.">
+  <meta name="keywords" content="Archipelago, daily game, hex puzzle, island building, board game, strategy">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Plus Jakarta Sans", sans-serif;
+      background-color: #022c22;
+      background-image: 
+        radial-gradient(circle at 50% 18%, rgba(20, 184, 166, 0.28) 0%, rgba(5, 150, 105, 0.2) 28%, transparent 68%),
+        radial-gradient(circle at 10% 85%, rgba(16, 185, 129, 0.18) 0%, transparent 45%),
+        radial-gradient(circle at 90% 80%, rgba(14, 165, 233, 0.18) 0%, transparent 45%),
+        linear-gradient(180deg, #064e3b 0%, #065f46 22%, #0f766e 45%, #083344 75%, #021a24 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      position: relative;
+    }
 
+    /* Ambient Nature Backdrop */
+    .nature-backdrop {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.45;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    /* Floating Nature Spores / Fireflies */
+    .firefly {
+      position: fixed;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #fde047;
+      box-shadow: 0 0 8px #facc15, 0 0 16px #f59e0b;
+      pointer-events: none;
+      opacity: 0.65;
+      animation: floatFirefly 12s infinite ease-in-out;
+      z-index: 1;
+    }
+    @keyframes floatFirefly {
+      0% { transform: translate(0, 0) scale(0.8); opacity: 0.2; }
+      50% { transform: translate(30px, -45px) scale(1.2); opacity: 0.8; }
+      100% { transform: translate(-20px, -90px) scale(0.8); opacity: 0; }
+    }
+
+    header {
+      background: rgba(6, 78, 59, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(45, 212, 191, 0.35);
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.15rem; letter-spacing: -0.3px; }
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      background: rgba(4, 120, 87, 0.75);
+      color: #fef08a;
+      border-radius: 6px;
+      font-family: monospace;
+      font-weight: 700;
+      border: 1px solid rgba(250, 204, 21, 0.35);
+    }
+    .controls { display: flex; gap: 6px; align-items: center; }
+    button.btn {
+      background: #0f766e;
+      color: #fff;
+      border: 1px solid #14b8a6;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    button.btn:active { transform: scale(0.96); }
+    .btn-gold { background: #f59e0b; color: #020617; border-color: #fbbf24; }
+    
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      max-width: 600px;
+      margin: 8px auto 4px auto;
+      width: 100%;
+      padding: 0 12px;
+      position: relative;
+      z-index: 2;
+    }
+    .hud-card {
+      background: rgba(6, 78, 59, 0.65);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(45, 212, 191, 0.35);
+      border-radius: 12px;
+      padding: 8px 10px;
+      text-align: center;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    }
+    .hud-title { font-size: 0.65rem; color: #a7f3d0; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+    .hud-val { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+    .rule-banner {
+      max-width: 600px;
+      width: 100%;
+      margin: 4px auto 4px auto;
+      padding: 0 12px;
+      position: relative;
+      z-index: 2;
+    }
+    .rule-banner-box {
+      background: linear-gradient(90deg, rgba(245, 158, 11, 0.25) 0%, rgba(6, 78, 59, 0.8) 50%, rgba(245, 158, 11, 0.25) 100%);
+      border: 1px solid rgba(251, 191, 36, 0.45);
+      border-radius: 12px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+    .rule-banner-box .icon { font-size: 1.4rem; }
+    .rule-banner-box .title { font-weight: 800; color: #fef08a; }
+    .rule-banner-box .desc { color: #e0f2fe; margin-top: 1px; line-height: 1.3; }
+
+    .board-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 6px;
+      max-width: 580px;
+      margin: 0 auto;
+      width: 100%;
+      z-index: 2;
+    }
+    
+    /* Nature Island Ambient Halo */
+    .board-container::before {
+      content: '';
+      position: absolute;
+      width: 380px;
+      height: 380px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(45, 212, 191, 0.16) 0%, rgba(16, 185, 129, 0.08) 50%, transparent 75%);
+      pointer-events: none;
+      filter: blur(20px);
+    }
+
+    svg.hex-grid {
+      width: 100%;
+      height: auto;
+      max-height: 60vh;
+      overflow: visible;
+      filter: drop-shadow(0 14px 32px rgba(2, 44, 34, 0.75));
+    }
+
+    /* Placed Hex Shimmering Animation */
+    .placed-tile-poly {
+      animation: gentleShimmer 4s ease-in-out infinite alternate;
+      transition: fill 0.3s ease, stroke 0.3s ease;
+    }
+    @keyframes gentleShimmer {
+      0% {
+        opacity: 0.94;
+      }
+      50% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0.94;
+      }
+    }
+
+    .tray {
+      background: rgba(6, 78, 59, 0.95);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(45, 212, 191, 0.4);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 600px;
+      margin: 0 auto;
+      width: 100%;
+      border-radius: 16px 16px 0 0;
+      box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.3);
+      position: relative;
+      z-index: 10;
+    }
+    .current-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .tile-preview {
+      width: 54px;
+      height: 54px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.9rem;
+      border: 2px solid #fed7aa;
+      box-shadow: 0 0 16px rgba(45, 212, 191, 0.4);
+      animation: float 2.4s ease-in-out infinite alternate;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+    @keyframes float {
+      from { transform: translateY(0); }
+      to { transform: translateY(-3px); }
+    }
+    .tile-info .name { font-weight: 800; font-size: 0.95rem; color: #f8fafc; }
+    .tile-info .rule { font-size: 0.72rem; color: #a7f3d0; margin-top: 2px; }
+
+    .queue { display: flex; gap: 6px; align-items: center; }
+    .queue-label { font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-right: 2px; }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 44, 34, 0.88);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      padding: 16px;
+    }
+    .modal-card {
+      background: #064e3b;
+      border: 1px solid #14b8a6;
+      border-radius: 20px;
+      max-width: 440px;
+      width: 100%;
+      padding: 22px;
+      text-align: center;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 45px rgba(0,0,0,0.8);
+    }
+    .table-rules {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.74rem;
+      margin-top: 12px;
+    }
+    .table-rules th { color: #5eead4; padding: 6px 4px; border-bottom: 1px solid #065f46; font-weight: 700; }
+    .table-rules td { padding: 6px 4px; border-bottom: 1px solid #065f46; color: #cbd5e1; }
+    .score-breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      padding: 5px 0;
+      border-bottom: 1px dashed #0f766e;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Nature Backdrop and Fireflies -->
+  <div class="nature-backdrop"></div>
+  <div class="firefly" style="top: 25%; left: 15%; animation-delay: 0s;"></div>
+  <div class="firefly" style="top: 65%; left: 82%; animation-delay: 3s;"></div>
+  <div class="firefly" style="top: 40%; left: 88%; animation-delay: 6s;"></div>
+  <div class="firefly" style="top: 75%; left: 22%; animation-delay: 9s;"></div>
+
+  <header>
+    <div class="brand">
+      <span>🌿 Archipelago</span>
+      <span class="badge" id="seed-badge">SEED</span>
+      <span class="badge" id="streak-badge">🔥 1 DAY</span>
+    </div>
+    <div class="controls">
+      <button class="btn" id="sound-btn" onclick="toggleSound()">🔊</button>
+      <button class="btn" onclick="toggleLang()" id="lang-btn">🌐 BS</button>
+      <button class="btn btn-gold" onclick="openModal('rules-modal')" id="rules-btn">❓ Rules</button>
+    </div>
+  </header>
+
+  <div class="hud">
+    <div class="hud-card">
+      <div class="hud-title" id="hud-score-label">Score</div>
+      <div class="hud-val" id="score-val" style="color: #5eead4;">0</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-title" id="hud-tiles-label">Placed</div>
+      <div class="hud-val" id="tiles-val" style="color: #fef08a;">0 / 30</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-title" id="hud-rule-label">Modifier</div>
+      <div class="hud-val" id="rule-name" style="font-size: 0.85rem; color: #4ade80; margin-top: 5px;">-</div>
+    </div>
+  </div>
+
+  <div class="rule-banner">
+    <div class="rule-banner-box" onclick="openModal('rules-modal')">
+      <span class="icon" id="banner-emoji">🌊</span>
+      <div>
+        <div class="title" id="banner-title">Daily Rule</div>
+        <div class="desc" id="banner-desc">Loading today's environmental rule...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-container">
+    <svg id="hex-svg" class="hex-grid" viewBox="-270 -260 540 520">
+      <defs>
+        <!-- Soft, luminous shimmering terrain gradients for each tile type -->
+
+        <!-- 🏡 Village: Soft shimmering light orange / peach -->
+        <linearGradient id="grad-village" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fff7ed" />
+          <stop offset="35%" stopColor="#fed7aa" />
+          <stop offset="100%" stopColor="#fb923c" />
+        </linearGradient>
+
+        <!-- 💧 Lake: Soft shimmering crystal blue -->
+        <linearGradient id="grad-lake" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#f0f9ff" />
+          <stop offset="35%" stopColor="#7dd3fc" />
+          <stop offset="100%" stopColor="#0284c7" />
+        </linearGradient>
+
+        <!-- 🌲 Forest: Soft shimmering emerald green -->
+        <linearGradient id="grad-forest" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#f0fdf4" />
+          <stop offset="35%" stopColor="#86efac" />
+          <stop offset="100%" stopColor="#16a34a" />
+        </linearGradient>
+
+        <!-- ⛰️ Mountain: Soft shimmering stone gray -->
+        <linearGradient id="grad-mountain" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#f8fafc" />
+          <stop offset="35%" stopColor="#cbd5e1" />
+          <stop offset="100%" stopColor="#64748b" />
+        </linearGradient>
+
+        <!-- 🌾 Field: Soft shimmering golden wheat -->
+        <linearGradient id="grad-field" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fefce8" />
+          <stop offset="35%" stopColor="#fde047" />
+          <stop offset="100%" stopColor="#d97706" />
+        </linearGradient>
+
+        <!-- ⛵ Port: Soft shimmering turquoise marine -->
+        <linearGradient id="grad-port" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#f0fdfa" />
+          <stop offset="35%" stopColor="#5eead4" />
+          <stop offset="100%" stopColor="#0f766e" />
+        </linearGradient>
+
+        <!-- 🚜 Farm: Soft shimmering warm amber gold -->
+        <linearGradient id="grad-farm" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fef9c3" />
+          <stop offset="35%" stopColor="#facc15" />
+          <stop offset="100%" stopColor="#ca8a04" />
+        </linearGradient>
+
+        <!-- 🗼 Lighthouse: Soft shimmering ocean beacon azure -->
+        <linearGradient id="grad-lighthouse" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#e0f2fe" />
+          <stop offset="35%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#0369a1" />
+        </linearGradient>
+
+        <!-- 🏰 Castle: Soft shimmering royal amethyst -->
+        <linearGradient id="grad-castle" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#faf5ff" />
+          <stop offset="35%" stopColor="#d8b4fe" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </linearGradient>
+
+        <!-- Vacant Reef Hexagon Gradient (crystal clear nature waters) -->
+        <linearGradient id="grad-empty" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0f766e" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="#042f2e" stopOpacity="0.75" />
+        </linearGradient>
+      </defs>
+
+      <!-- Layer for dynamic connection paths between adjacent synergistic tiles -->
+      <g id="hex-connections" stroke-linecap="round" opacity="0.7"></g>
+      <!-- Layer for hex tiles -->
+      <g id="hex-cells"></g>
+      <!-- Layer for placed ripple waves -->
+      <g id="hex-effects"></g>
+    </svg>
+    <div style="font-size: 0.75rem; color: #a7f3d0; margin-top: 6px;" id="tap-hint">👆 Tap any vacant hex to place the tile</div>
+  </div>
+
+  <div class="tray">
+    <div class="current-card">
+      <div class="tile-preview" id="current-preview">
+        <span id="current-emoji">🌲</span>
+      </div>
+      <div class="tile-info">
+        <div class="name" id="current-name">Forest</div>
+        <div class="rule" id="current-rule">+5 points for clusters of 4+ forests</div>
+      </div>
+    </div>
+    <div class="queue">
+      <span class="queue-label" id="queue-label">Next:</span>
+      <div id="queue-preview" style="display:flex; gap:5px;"></div>
+    </div>
+  </div>
+
+  <!-- Rules Modal -->
+  <div class="modal-overlay" id="rules-modal">
+    <div class="modal-card">
+      <h2 style="color: #fef08a; margin-bottom: 8px;" id="modal-rules-title">📜 Scoring Rules</h2>
+      <p style="font-size: 0.8rem; color: #94a3b8;" id="modal-rules-desc">Place 30 tiles onto a 37-cell hexagonal grid. Everyone plays with the exact same deck worldwide today!</p>
+      
+      <table class="table-rules">
+        <thead>
+          <tr><th>Tile</th><th>Scoring Rule</th></tr>
+        </thead>
+        <tbody id="rules-table-body">
+          <tr><td>🌲 <b>Forest</b></td><td>+5 pts for clusters of 4 or more connected forests.</td></tr>
+          <tr><td>⛰️ <b>Mountain</b></td><td>+4 pts if touching at least 2 forests.</td></tr>
+          <tr><td>🌾 <b>Field</b></td><td>Nutrient source for nearby villages and farms.</td></tr>
+          <tr><td>🏡 <b>Village</b></td><td>+3 next to Field, +2 next to Lake, -2 next to Mountain.</td></tr>
+          <tr><td>💧 <b>Lake</b></td><td>Fresh water for nearby villages and farms.</td></tr>
+          <tr><td>⛵ <b>Port</b></td><td>+3 pts if touching open water / coastline.</td></tr>
+          <tr><td>🚜 <b>Farm</b></td><td>+3 next to Field, +2 next to Lake, +2 next to Village.</td></tr>
+          <tr><td>🗼 <b>Lighthouse</b></td><td>+4 facing open water, +2 next to Port, +2 next to Village.</td></tr>
+          <tr><td>🏰 <b>Castle</b></td><td>+4 next to Mountain, +2 next to Forest, +2 next to Village.</td></tr>
+        </tbody>
+      </table>
+
+      <div style="background: rgba(15,118,110,0.35); border:1px solid #14b8a6; border-radius:10px; padding:10px; margin-top:12px; text-align:left;">
+        <div style="font-weight:700; color:#5eead4; font-size:0.8rem;" id="rules-daily-title">⚡ Today's Environmental Modifier:</div>
+        <div style="font-size:0.75rem; color:#f8fafc; margin-top:3px;" id="rules-daily-desc">-</div>
+      </div>
+
+      <button class="btn btn-gold" style="width: 100%; margin-top: 16px; justify-content: center; padding: 10px;" onclick="closeModal('rules-modal')" id="modal-close-btn">Got it, let's build!</button>
+    </div>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div class="modal-overlay" id="gameover-modal">
+    <div class="modal-card">
+      <div style="font-size: 2.8rem; margin-bottom: 4px;">🎉</div>
+      <h2 style="color: #5eead4; font-size: 1.5rem;" id="go-title">Island Completed!</h2>
+      <p style="font-size: 0.8rem; color: #a7f3d0; margin-top: 2px;" id="go-date">2026-10-27</p>
+
+      <div style="background: rgba(15,118,110,0.35); border: 1px solid #14b8a6; border-radius: 14px; padding: 14px; margin: 14px 0;">
+        <div style="font-size: 0.75rem; color: #5eead4; text-transform: uppercase; font-weight: 700;" id="go-final-label">Final Score</div>
+        <div style="font-size: 2.8rem; font-weight: 900; color: #fef08a;" id="go-score">0</div>
+        <div style="font-size: 0.82rem; color: #4ade80; font-weight: 700; margin-top: 2px;" id="go-rank">Calculating rank...</div>
+        <div style="font-size: 0.8rem; color: #fbbf24; font-weight: 700; margin-top: 4px;" id="go-streak">🔥 Daily Streak: 1 day</div>
+      </div>
+
+      <div style="text-align: left; background: #042f2e; border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; border: 1px solid #0f766e;" id="breakdown-list">
+        <!-- Breakdown injected by JS -->
+      </div>
+
+      <button class="btn btn-gold" style="width: 100%; padding: 12px; font-size: 0.95rem; justify-content: center;" onclick="shareScore()" id="share-btn">📋 Share Score</button>
+      <button class="btn" style="width: 100%; margin-top: 8px; justify-content: center; background: transparent; border-color: #0f766e; color:#a7f3d0;" onclick="closeModal('gameover-modal')" id="inspect-btn">Inspect Island</button>
+    </div>
+  </div>
+
+  <script>
+    let soundEnabled = true;
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playSound(type) {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'place') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(340, now);
+          osc.frequency.exponentialRampToValueAtTime(140, now + 0.12);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        } else if (type === 'bonus') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.setValueAtTime(554.37, now + 0.08);
+          osc.frequency.setValueAtTime(659.25, now + 0.16);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.28);
+          osc.start(now);
+          osc.stop(now + 0.28);
+        } else if (type === 'penalty') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.exponentialRampToValueAtTime(110, now + 0.2);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+          osc.start(now);
+          osc.stop(now + 0.2);
+        } else if (type === 'fanfare') {
+          [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'triangle';
+            o.frequency.setValueAtTime(freq, now + i * 0.1);
+            g.gain.setValueAtTime(0.2, now + i * 0.1);
+            g.linearRampToValueAtTime(0.01, now + i * 0.1 + 0.35);
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.start(now + i * 0.1);
+            o.stop(now + i * 0.1 + 0.35);
+          });
+        }
+      } catch (e) {}
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('sound-btn').textContent = soundEnabled ? '🔊' : '🔇';
+      if (soundEnabled) playSound('place');
+    }
+
+    const TILES = {
+      FOREST: { emoji: '🌲', nameBs: 'Šuma', nameEn: 'Forest', grad: 'url(#grad-forest)', stroke: '#86efac', glow: '#4ade80', descBs: '+5 bodova za 4+ povezane šume', descEn: '+5 pts for 4+ connected forests' },
+      MOUNTAIN: { emoji: '⛰️', nameBs: 'Planina', nameEn: 'Mountain', grad: 'url(#grad-mountain)', stroke: '#e2e8f0', glow: '#cbd5e1', descBs: '+4 boda ako dodiruje 2+ šume', descEn: '+4 pts if touching 2+ forests' },
+      FIELD: { emoji: '🌾', nameBs: 'Polje', nameEn: 'Field', grad: 'url(#grad-field)', stroke: '#fde047', glow: '#fbbf24', descBs: 'Resurs za sela i farme', descEn: 'Resource for villages and farms' },
+      VILLAGE: { emoji: '🏡', nameBs: 'Selo', nameEn: 'Village', grad: 'url(#grad-village)', stroke: '#fed7aa', glow: '#fb923c', descBs: '+3 uz Žito, +2 uz Jezero, -2 uz Planinu', descEn: '+3 w/ Field, +2 w/ Lake, -2 w/ Mountain' },
+      LAKE: { emoji: '💧', nameBs: 'Jezero', nameEn: 'Lake', grad: 'url(#grad-lake)', stroke: '#7dd3fc', glow: '#38bdf8', descBs: 'Voda za sela i farme', descEn: 'Water for villages and farms' },
+      PORT: { emoji: '⛵', nameBs: 'Luka', nameEn: 'Port', grad: 'url(#grad-port)', stroke: '#5eead4', glow: '#2dd4bf', descBs: '+3 ako gleda na otvoreno more', descEn: '+3 if touching open water' },
+      FARM: { emoji: '🚜', nameBs: 'Farma', nameEn: 'Farm', grad: 'url(#grad-farm)', stroke: '#fef08a', glow: '#facc15', descBs: '+3 uz Žito, +2 uz Jezero, +2 uz Selo', descEn: '+3 w/ Field, +2 w/ Lake, +2 w/ Village' },
+      LIGHTHOUSE: { emoji: '🗼', nameBs: 'Svjetionik', nameEn: 'Lighthouse', grad: 'url(#grad-lighthouse)', stroke: '#bae6fd', glow: '#38bdf8', descBs: '+4 uz more, +2 uz Luku, +2 uz Selo', descEn: '+4 w/ Sea, +2 w/ Port, +2 w/ Village' },
+      CASTLE: { emoji: '🏰', nameBs: 'Dvorac', nameEn: 'Castle', grad: 'url(#grad-castle)', stroke: '#e9d5ff', glow: '#c084fc', descBs: '+4 uz Planinu, +2 uz Šumu, +2 uz Selo', descEn: '+4 w/ Mountain, +2 w/ Forest, +2 w/ Village' }
+    };
+
+    const DAILY_RULES = [
+      { id: 'STANDARD', emoji: '⚖️', nameBs: 'Mirno More', nameEn: 'Calm Seas', descBs: 'Standardna pravila bodovanja bez vremenskih nepogoda.', descEn: 'Standard scoring rules without anomalies.' },
+      { id: 'STORM_SEASON', emoji: '🌩️', nameBs: 'Sezona Oluja', nameEn: 'Storm Season', descBs: 'Vanjski prsten gubi -1 bod po pločici zbog jakih valova.', descEn: 'Outer perimeter tiles lose -1 pt due to high waves.' },
+      { id: 'FOREST_SANCTUARY', emoji: '🌿', nameBs: 'Drevne Šume', nameEn: 'Ancient Woods', descBs: 'Grozdovi od 4+ šuma daju čak +10 bodova umjesto 5.', descEn: 'Forest clusters of 4+ award +10 pts instead of 5.' },
+      { id: 'TRADING_BOOM', emoji: '🪙', nameBs: 'Trgovački Procvat', nameEn: 'Trading Boom', descBs: 'Svaka Luka na obali donosi +6 bodova umjesto 3.', descEn: 'Coastal Ports yield +6 pts instead of 3.' },
+      { id: 'VILLAGE_FAIR', emoji: '🎪', nameBs: 'Seoski Vašar', nameEn: 'Village Fair', descBs: 'Sela dobijaju +4 uz Žitno polje i +3 uz Jezero.', descEn: 'Villages gain +4 next to Field and +3 next to Lake.' },
+      { id: 'VOLCANIC_SOIL', emoji: '🌋', nameBs: 'Plodno Tlo', nameEn: 'Fertile Soil', descBs: 'Planine daju dodatnih +3 boda za svako susjedno Polje.', descEn: 'Mountains give +3 extra points per adjacent Field.' },
+      { id: 'PEACEFUL_VALLEYS', emoji: '🕊️', nameBs: 'Mirne Doline', nameEn: 'Peaceful Valleys', descBs: 'Sela više ne dobijaju kaznu (-2) uz Planine!', descEn: 'Villages no longer suffer -2 penalty next to Mountains!' }
+    ];
+
+    let currentLang = 'en';
+    let board = [];
+    let pool = [];
+    let turn = 0;
+    let activeRule = DAILY_RULES[0];
+    let lastPlacedCellId = null;
+    const R = 39;
+
+    function getTodayString() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function xmur3(str) {
+      let h = 1779033703 ^ str.length;
+      for (let i = 0; i < str.length; i++) {
+        h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+        h = (h << 13) | (h >>> 19);
+      }
+      return function() {
+        h = Math.imul(h ^ (h >>> 16), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        return (h ^= h >>> 16) >>> 0;
+      };
+    }
+
+    function mulberry32(a) {
+      return function() {
+        let t = (a += 0x6D2B79F5);
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function initGame() {
+      const today = getTodayString();
+      document.getElementById('seed-badge').textContent = today;
+      document.getElementById('go-date').textContent = today;
+
+      const seedFn = xmur3(today);
+      const prng = mulberry32(seedFn());
+
+      activeRule = DAILY_RULES[Math.floor(prng() * DAILY_RULES.length)];
+
+      board = [];
+      const radius = 3;
+      for (let q = -radius; q <= radius; q++) {
+        const r1 = Math.max(-radius, -q - radius);
+        const r2 = Math.min(radius, -q + radius);
+        for (let r = r1; r <= r2; r++) {
+          const dist = Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r));
+          board.push({
+            id: `${q},${r}`,
+            q, r,
+            isPerimeter: dist === radius,
+            tile: null
+          });
+        }
+      }
+
+      const rawPool = [
+        'FOREST', 'FOREST', 'FOREST', 'FOREST',
+        'MOUNTAIN', 'MOUNTAIN', 'MOUNTAIN',
+        'FIELD', 'FIELD', 'FIELD', 'FIELD',
+        'VILLAGE', 'VILLAGE', 'VILLAGE', 'VILLAGE',
+        'LAKE', 'LAKE', 'LAKE',
+        'PORT', 'PORT', 'PORT',
+        'FARM', 'FARM', 'FARM',
+        'LIGHTHOUSE', 'LIGHTHOUSE', 'LIGHTHOUSE',
+        'CASTLE', 'CASTLE', 'CASTLE'
+      ];
+
+      pool = [...rawPool];
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(prng() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+
+      turn = 0;
+      lastPlacedCellId = null;
+      loadAndDisplayStreak();
+      updateStaticText();
+      renderBoard();
+    }
+
+    const DIRS = [
+      { q: 1, r: 0 }, { q: 1, r: -1 }, { q: 0, r: -1 },
+      { q: -1, r: 0 }, { q: -1, r: 1 }, { q: 0, r: 1 }
+    ];
+
+    function getCenter(q, r) {
+      const cx = R * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r);
+      const cy = R * (1.5 * r);
+      return { cx, cy };
+    }
+
+    function getHexPoints(cx, cy, r) {
+      const pts = [];
+      for (let i = 0; i < 6; i++) {
+        const angleDeg = 60 * i - 30; // Pointy-topped alignment
+        const angleRad = (Math.PI / 180) * angleDeg;
+        const px = (cx + r * Math.cos(angleRad)).toFixed(2);
+        const py = (cy + r * Math.sin(angleRad)).toFixed(2);
+        pts.push(`${px},${py}`);
+      }
+      return pts.join(' ');
+    }
+
+    function calcScore() {
+      const map = new Map();
+      board.forEach(c => map.set(`${c.q},${c.r}`, c));
+      let pts = 0;
+      let vf = 0, vl = 0, vm = 0, mf = 0, ps = 0, farmPts = 0, lightPts = 0, castlePts = 0, stormPenalty = 0;
+
+      board.forEach(c => {
+        if (!c.tile) return;
+        const neighbors = [];
+        let openWater = 0;
+        DIRS.forEach(d => {
+          const n = map.get(`${c.q + d.q},${c.r + d.r}`);
+          if (n && n.tile) neighbors.push(n);
+          else openWater++;
+        });
+
+        if (c.tile === 'VILLAGE') {
+          neighbors.forEach(n => {
+            if (n.tile === 'FIELD') {
+              const val = activeRule.id === 'VILLAGE_FAIR' ? 4 : 3;
+              pts += val; vf += val;
+            }
+            if (n.tile === 'LAKE') {
+              const val = activeRule.id === 'VILLAGE_FAIR' ? 3 : 2;
+              pts += val; vl += val;
+            }
+            if (n.tile === 'MOUNTAIN') {
+              if (activeRule.id !== 'PEACEFUL_VALLEYS') { pts -= 2; vm -= 2; }
+            }
+          });
+        }
+        if (c.tile === 'MOUNTAIN') {
+          if (neighbors.filter(n => n.tile === 'FOREST').length >= 2) {
+            pts += 4; mf += 4;
+          }
+          if (activeRule.id === 'VOLCANIC_SOIL') {
+            const fields = neighbors.filter(n => n.tile === 'FIELD').length;
+            pts += fields * 3;
+          }
+        }
+        if (c.tile === 'PORT') {
+          if (openWater > 0) {
+            const val = activeRule.id === 'TRADING_BOOM' ? 6 : 3;
+            pts += val; ps += val;
+          }
+        }
+        if (c.tile === 'FARM') {
+          neighbors.forEach(n => {
+            if (n.tile === 'FIELD') { pts += 3; farmPts += 3; }
+            if (n.tile === 'LAKE') { pts += 2; farmPts += 2; }
+            if (n.tile === 'VILLAGE') { pts += 2; farmPts += 2; }
+          });
+        }
+        if (c.tile === 'LIGHTHOUSE') {
+          if (openWater > 0) { pts += 4; lightPts += 4; }
+          neighbors.forEach(n => {
+            if (n.tile === 'PORT') { pts += 2; lightPts += 2; }
+            if (n.tile === 'VILLAGE') { pts += 2; lightPts += 2; }
+          });
+        }
+        if (c.tile === 'CASTLE') {
+          neighbors.forEach(n => {
+            if (n.tile === 'MOUNTAIN') { pts += 4; castlePts += 4; }
+            if (n.tile === 'VILLAGE') { pts += 2; castlePts += 2; }
+            if (n.tile === 'FOREST') { pts += 2; castlePts += 2; }
+          });
+        }
+
+        if (activeRule.id === 'STORM_SEASON' && c.isPerimeter) {
+          pts -= 1;
+          stormPenalty -= 1;
+        }
+      });
+
+      let fc = 0;
+      const visited = new Set();
+      board.forEach(c => {
+        if (c.tile === 'FOREST' && !visited.has(`${c.q},${c.r}`)) {
+          let size = 0;
+          const q = [c];
+          visited.add(`${c.q},${c.r}`);
+          while (q.length > 0) {
+            const cur = q.shift();
+            size++;
+            DIRS.forEach(d => {
+              const key = `${cur.q + d.q},${cur.r + d.r}`;
+              const n = map.get(key);
+              if (n && n.tile === 'FOREST' && !visited.has(key)) {
+                visited.add(key);
+                q.push(n);
+              }
+            });
+          }
+          if (size >= 4) {
+            const val = activeRule.id === 'FOREST_SANCTUARY' ? 10 : 5;
+            pts += val; fc += val;
+          }
+        }
+      });
+
+      return { total: pts, vf, vl, vm, mf, ps, fc, farmPts, lightPts, castlePts, stormPenalty };
+    }
+
+    function renderBoard() {
+      const rName = currentLang === 'bs' ? activeRule.nameBs : activeRule.nameEn;
+      const rDesc = currentLang === 'bs' ? activeRule.descBs : activeRule.descEn;
+      document.getElementById('rule-name').textContent = rName;
+      document.getElementById('banner-emoji').textContent = activeRule.emoji;
+      document.getElementById('banner-title').textContent = (currentLang === 'bs' ? 'Dnevno pravilo: ' : 'Daily Rule: ') + rName;
+      document.getElementById('banner-desc').textContent = rDesc;
+      document.getElementById('rules-daily-desc').textContent = `${activeRule.emoji} ${rName} - ${rDesc}`;
+
+      const cellMap = new Map();
+      board.forEach(c => cellMap.set(`${c.q},${c.r}`, c));
+
+      // 1. Draw Adjacency Connections (Visual bridges connecting tiles)
+      const connGroup = document.getElementById('hex-connections');
+      connGroup.innerHTML = '';
+      board.forEach(cell => {
+        if (!cell.tile) return;
+        const { cx: x1, cy: y1 } = getCenter(cell.q, cell.r);
+
+        DIRS.forEach(d => {
+          if (d.q > 0 || (d.q === 0 && d.r > 0)) {
+            const neighbor = cellMap.get(`${cell.q + d.q},${cell.r + d.r}`);
+            if (neighbor && neighbor.tile) {
+              const { cx: x2, cy: y2 } = getCenter(neighbor.q, neighbor.r);
+              let connColor = null;
+
+              if ((cell.tile === 'VILLAGE' && neighbor.tile === 'FIELD') || (cell.tile === 'FIELD' && neighbor.tile === 'VILLAGE')) connColor = '#facc15';
+              else if ((cell.tile === 'VILLAGE' && neighbor.tile === 'LAKE') || (cell.tile === 'LAKE' && neighbor.tile === 'VILLAGE')) connColor = '#38bdf8';
+              else if ((cell.tile === 'MOUNTAIN' && neighbor.tile === 'FOREST') || (cell.tile === 'FOREST' && neighbor.tile === 'MOUNTAIN')) connColor = '#4ade80';
+              else if (cell.tile === 'FOREST' && neighbor.tile === 'FOREST') connColor = '#22c55e';
+              else if ((cell.tile === 'FARM' && neighbor.tile === 'FIELD') || (cell.tile === 'FIELD' && neighbor.tile === 'FARM')) connColor = '#fbbf24';
+              else if ((cell.tile === 'CASTLE' && neighbor.tile === 'MOUNTAIN') || (cell.tile === 'MOUNTAIN' && neighbor.tile === 'CASTLE')) connColor = '#c084fc';
+              else if ((cell.tile === 'LIGHTHOUSE' && neighbor.tile === 'PORT') || (cell.tile === 'PORT' && neighbor.tile === 'LIGHTHOUSE')) connColor = '#2dd4bf';
+
+              if (connColor) {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x1);
+                line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+                line.setAttribute('stroke', connColor);
+                line.setAttribute('stroke-width', '4');
+                line.setAttribute('stroke-linecap', 'round');
+                connGroup.appendChild(line);
+              }
+            }
+          }
+        });
+      });
+
+      // 2. Draw Hexagon Tiles
+      const cellsGroup = document.getElementById('hex-cells');
+      cellsGroup.innerHTML = '';
+
+      board.forEach(cell => {
+        const { cx, cy } = getCenter(cell.q, cell.r);
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.style.cursor = (!cell.tile && turn < 30) ? 'pointer' : 'default';
+        g.onclick = () => placeTile(cell.id);
+
+        const isPlaced = Boolean(cell.tile);
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', getHexPoints(cx, cy, R - 1));
+        
+        if (isPlaced) {
+          const tDef = TILES[cell.tile];
+          // Placed tile: Soft shimmering terrain color (Orange for Village, Blue for Lake, etc.)
+          poly.setAttribute('fill', tDef.grad);
+          poly.setAttribute('stroke', tDef.stroke);
+          poly.setAttribute('stroke-width', '2.2');
+          poly.setAttribute('stroke-linejoin', 'round');
+          poly.setAttribute('class', 'placed-tile-poly');
+          poly.setAttribute('style', `filter: drop-shadow(0 0 6px ${tDef.glow}77);`);
+        } else {
+          // Empty reef/water cell
+          poly.setAttribute('fill', 'url(#grad-empty)');
+          poly.setAttribute('stroke', (cell.isPerimeter && activeRule.id === 'STORM_SEASON') ? '#38bdf8' : '#0d9488');
+          poly.setAttribute('stroke-width', '1.2');
+          poly.setAttribute('stroke-linejoin', 'round');
+          if (cell.isPerimeter && activeRule.id === 'STORM_SEASON') {
+            poly.setAttribute('stroke-dasharray', '3 2');
+          }
+        }
+        g.appendChild(poly);
+
+        if (isPlaced) {
+          // Tile Emoji in the center
+          const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          txt.setAttribute('x', cx);
+          txt.setAttribute('y', cy + 7);
+          txt.setAttribute('text-anchor', 'middle');
+          txt.setAttribute('font-size', '21');
+          txt.setAttribute('pointer-events', 'none');
+          txt.setAttribute('filter', 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))');
+          txt.textContent = TILES[cell.tile].emoji;
+          g.appendChild(txt);
+
+          // Storm penalty badge
+          if (activeRule.id === 'STORM_SEASON' && cell.isPerimeter) {
+            const badge = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            badge.setAttribute('x', cx);
+            badge.setAttribute('y', cy + R - 9);
+            badge.setAttribute('text-anchor', 'middle');
+            badge.setAttribute('font-size', '8');
+            badge.setAttribute('font-weight', 'bold');
+            badge.setAttribute('fill', '#f87171');
+            badge.textContent = '🌩️-1';
+            g.appendChild(badge);
+          }
+        } else {
+          // Vacant cell turquoise center dot
+          const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          dot.setAttribute('cx', cx);
+          dot.setAttribute('cy', cy);
+          dot.setAttribute('r', '2.5');
+          dot.setAttribute('fill', '#5eead4');
+          dot.setAttribute('opacity', '0.5');
+          g.appendChild(dot);
+
+          if (activeRule.id === 'STORM_SEASON' && cell.isPerimeter) {
+            const stormInd = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            stormInd.setAttribute('x', cx);
+            stormInd.setAttribute('y', cy + 5);
+            stormInd.setAttribute('text-anchor', 'middle');
+            stormInd.setAttribute('font-size', '12');
+            stormInd.setAttribute('opacity', '0.35');
+            stormInd.textContent = '🌩️';
+            g.appendChild(stormInd);
+          }
+        }
+        cellsGroup.appendChild(g);
+      });
+
+      const res = calcScore();
+      document.getElementById('score-val').textContent = res.total;
+      document.getElementById('tiles-val').textContent = `${turn} / 30`;
+
+      if (turn < 30) {
+        const cur = TILES[pool[turn]];
+        document.getElementById('current-emoji').textContent = cur.emoji;
+        document.getElementById('current-name').textContent = currentLang === 'bs' ? cur.nameBs : cur.nameEn;
+        document.getElementById('current-rule').textContent = currentLang === 'bs' ? cur.descBs : cur.descEn;
+
+        const curBox = document.getElementById('current-preview');
+        if (curBox) {
+          curBox.style.background = cur.grad;
+          curBox.style.borderColor = cur.stroke;
+          curBox.style.boxShadow = `0 0 16px ${cur.glow}99`;
+        }
+
+        const qEl = document.getElementById('queue-preview');
+        qEl.innerHTML = '';
+        pool.slice(turn + 1, turn + 4).forEach((tType) => {
+          const tInfo = TILES[tType];
+          const div = document.createElement('div');
+          div.style.cssText = `width: 32px; height: 32px; border-radius: 8px; background: ${tInfo.grad}; border: 1px solid ${tInfo.stroke}; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; box-shadow: 0 2px 6px rgba(0,0,0,0.25);`;
+          div.textContent = tInfo.emoji;
+          qEl.appendChild(div);
+        });
+      }
+    }
+
+    function triggerRipple(cx, cy, color) {
+      const effGroup = document.getElementById('hex-effects');
+      const ripple = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      ripple.setAttribute('cx', cx);
+      ripple.setAttribute('cy', cy);
+      ripple.setAttribute('r', '15');
+      ripple.setAttribute('fill', 'none');
+      ripple.setAttribute('stroke', color || '#5eead4');
+      ripple.setAttribute('stroke-width', '3');
+      ripple.setAttribute('opacity', '0.9');
+      ripple.style.transition = 'all 0.55s ease-out';
+      effGroup.appendChild(ripple);
+
+      requestAnimationFrame(() => {
+        ripple.setAttribute('r', '55');
+        ripple.setAttribute('opacity', '0');
+        ripple.setAttribute('stroke-width', '0.5');
+      });
+
+      setTimeout(() => {
+        if (ripple.parentNode) ripple.parentNode.removeChild(ripple);
+      }, 600);
+    }
+
+    function placeTile(cellId) {
+      if (turn >= 30) return;
+      const cell = board.find(c => c.id === cellId);
+      if (!cell || cell.tile) return;
+
+      const placedType = pool[turn];
+      const prevScore = calcScore().total;
+      cell.tile = placedType;
+      lastPlacedCellId = cellId;
+      turn++;
+      playSound('place');
+
+      const { cx, cy } = getCenter(cell.q, cell.r);
+      const tInfo = TILES[placedType];
+      triggerRipple(cx, cy, tInfo ? tInfo.glow : '#5eead4');
+
+      const nextScore = calcScore().total;
+      setTimeout(() => {
+        if (nextScore > prevScore) playSound('bonus');
+        else if (nextScore < prevScore) playSound('penalty');
+      }, 100);
+
+      renderBoard();
+
+      if (turn >= 30) {
+        setTimeout(showGameOver, 400);
+      }
+    }
+
+    function calculatePercentileAndRank(score) {
+      const totalPlayers = 4820;
+      let pct = 50;
+      if (score <= 30) pct = 95;
+      else if (score <= 45) pct = 75;
+      else if (score <= 60) pct = 45;
+      else if (score <= 75) pct = 25;
+      else if (score <= 90) pct = 10;
+      else if (score <= 105) pct = 4;
+      else pct = 1;
+
+      const rank = Math.max(1, Math.round((pct / 100) * totalPlayers));
+      return { pct, rank, totalPlayers };
+    }
+
+    function getStreakData() {
+      let data = { streak: 0, lastDate: '', best: 0 };
+      try {
+        const raw = localStorage.getItem('archipelago_streak_data');
+        if (raw) data = JSON.parse(raw);
+      } catch (e) {}
+      return data;
+    }
+
+    function loadAndDisplayStreak() {
+      const data = getStreakData();
+      const today = getTodayString();
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
+
+      let currentStreak = data.streak;
+      if (data.lastDate !== today && data.lastDate !== yStr && data.lastDate !== '') {
+        currentStreak = 0;
+      }
+
+      const badge = document.getElementById('streak-badge');
+      if (badge) {
+        badge.textContent = `🔥 ${currentStreak} ${currentLang === 'bs' ? 'DANA' : (currentStreak === 1 ? 'DAY' : 'DAYS')}`;
+      }
+    }
+
+    function recordGameComplete() {
+      const data = getStreakData();
+      const today = getTodayString();
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
+
+      let newStreak = 1;
+      if (data.lastDate === today) {
+        newStreak = data.streak;
+      } else if (data.lastDate === yStr) {
+        newStreak = (data.streak || 0) + 1;
+      } else {
+        newStreak = 1;
+      }
+
+      const best = Math.max(data.best || 0, newStreak);
+      localStorage.setItem('archipelago_streak_data', JSON.stringify({
+        streak: newStreak,
+        lastDate: today,
+        best: best
+      }));
+
+      loadAndDisplayStreak();
+      return newStreak;
+    }
+
+    function showGameOver() {
+      playSound('fanfare');
+      const res = calcScore();
+      const streak = recordGameComplete();
+
+      document.getElementById('go-score').textContent = res.total;
+      const rankInfo = calculatePercentileAndRank(res.total);
+
+      if (currentLang === 'bs') {
+        document.getElementById('go-rank').textContent = `🏆 Rang: #${rankInfo.rank} od ${rankInfo.totalPlayers} igrača (Top ${rankInfo.pct}%)`;
+        document.getElementById('go-streak').textContent = `🔥 Dnevni niz: ${streak} ${streak === 1 ? 'dan' : 'dana'}`;
+      } else {
+        document.getElementById('go-rank').textContent = `🏆 Rank: #${rankInfo.rank} of ${rankInfo.totalPlayers} players (Top ${rankInfo.pct}%)`;
+        document.getElementById('go-streak').textContent = `🔥 Daily Streak: ${streak} ${streak === 1 ? 'day' : 'days'}`;
+      }
+
+      const list = document.getElementById('breakdown-list');
+      list.innerHTML = '';
+      const items = [
+        { label: currentLang === 'bs' ? '🏡 Selo + Žito' : '🏡 Village + Field', pts: res.vf },
+        { label: currentLang === 'bs' ? '🏡 Selo + Jezero' : '🏡 Village + Lake', pts: res.vl },
+        { label: currentLang === 'bs' ? '⛰️ Selo uz Planinu' : '⛰️ Village next to Mountain', pts: res.vm },
+        { label: currentLang === 'bs' ? '⛰️ Planina uz Šumu' : '⛰️ Mountain + Forest', pts: res.mf },
+        { label: currentLang === 'bs' ? '⛵ Obalne Luke' : '⛵ Coastal Ports', pts: res.ps },
+        { label: currentLang === 'bs' ? '🌲 Grozdovi Šuma' : '🌲 Forest Clusters', pts: res.fc },
+        { label: currentLang === 'bs' ? '🚜 Farme' : '🚜 Farms', pts: res.farmPts },
+        { label: currentLang === 'bs' ? '🗼 Svjetionici' : '🗼 Lighthouses', pts: res.lightPts },
+        { label: currentLang === 'bs' ? '🏰 Dvorci' : '🏰 Castles', pts: res.castlePts },
+        { label: currentLang === 'bs' ? '🌩️ Kazna Oluje' : '🌩️ Storm Penalty', pts: res.stormPenalty }
+      ];
+
+      items.forEach(it => {
+        if (it.pts !== 0) {
+          const row = document.createElement('div');
+          row.className = 'score-breakdown-row';
+          row.innerHTML = `<span>${it.label}</span><strong style="color: ${it.pts > 0 ? '#4ade80' : '#f87171'}">${it.pts > 0 ? '+' : ''}${it.pts}</strong>`;
+          list.appendChild(row);
+        }
+      });
+
+      openModal('gameover-modal');
+    }
+
+    function shareScore() {
+      const res = calcScore();
+      const rankInfo = calculatePercentileAndRank(res.total);
+      const data = getStreakData();
+      const today = getTodayString();
+      const rName = currentLang === 'bs' ? activeRule.nameBs : activeRule.nameEn;
+
+      const text = `🏝️ Archipelago (${today})\n` +
+        `🏆 ${res.total} pts | Top ${rankInfo.pct}% (#${rankInfo.rank})\n` +
+        `🔥 Streak: ${data.streak} ${data.streak === 1 ? 'day' : 'days'} | ${activeRule.emoji} ${rName}\n` +
+        `Play here: ${window.location.href}`;
+
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = document.getElementById('share-btn');
+          const old = btn.textContent;
+          btn.textContent = currentLang === 'bs' ? '✅ Kopirano!' : '✅ Copied to clipboard!';
+          setTimeout(() => btn.textContent = old, 2000);
+        });
+      }
+    }
+
+    function updateStaticText() {
+      const isBs = currentLang === 'bs';
+      document.getElementById('lang-btn').textContent = isBs ? '🌐 EN' : '🌐 BS';
+      document.getElementById('hud-score-label').textContent = isBs ? 'Bodovi' : 'Score';
+      document.getElementById('hud-tiles-label').textContent = isBs ? 'Potezi' : 'Placed';
+      document.getElementById('hud-rule-label').textContent = isBs ? 'Modifikator' : 'Modifier';
+      document.getElementById('rules-btn').textContent = isBs ? '❓ Pravila' : '❓ Rules';
+      document.getElementById('queue-label').textContent = isBs ? 'Slijedi:' : 'Next:';
+      document.getElementById('tap-hint').textContent = isBs ? '👆 Dodirni slobodno polje da postaviš pločicu' : '👆 Tap any vacant hex to place the tile';
+      document.getElementById('modal-rules-title').textContent = isBs ? '📜 Pravila Bodovanja' : '📜 Scoring Rules';
+      document.getElementById('modal-rules-desc').textContent = isBs ? 'Postavi 30 pločica na mapu od 37 heksagonalnih polja. Svi igrači na svijetu danas imaju isti raspored!' : 'Place 30 tiles onto a 37-cell hexagonal grid. Everyone plays with the exact same deck worldwide today!';
+      document.getElementById('rules-daily-title').textContent = isBs ? '⚡ Današnji modifikator:' : "⚡ Today's Environmental Modifier:";
+      document.getElementById('modal-close-btn').textContent = isBs ? 'Razumijem, idemo graditi!' : "Got it, let's build!";
+      document.getElementById('go-title').textContent = isBs ? 'Otok je završen!' : 'Island Completed!';
+      document.getElementById('go-final-label').textContent = isBs ? 'Konačni Bodovi' : 'Final Score';
+      document.getElementById('share-btn').textContent = isBs ? '📋 Podijeli Rezultat' : '📋 Share Score';
+      document.getElementById('inspect-btn').textContent = isBs ? 'Pogledaj Otok' : 'Inspect Island';
+
+      const tbody = document.getElementById('rules-table-body');
+      if (isBs) {
+        tbody.innerHTML = `
+          <tr><td>🌲 <b>Šuma</b></td><td>+5 bodova za grupu od 4 ili više povezanih šuma.</td></tr>
+          <tr><td>⛰️ <b>Planina</b></td><td>+4 boda ako ima barem 2 susjedne šume.</td></tr>
+          <tr><td>🌾 <b>Polje</b></td><td>Sirovi resurs za sela i farme.</td></tr>
+          <tr><td>🏡 <b>Selo</b></td><td>+3 uz Žito, +2 uz Jezero, -2 uz Planinu.</td></tr>
+          <tr><td>💧 <b>Jezero</b></td><td>Prirodni izvor vode za sela i farme.</td></tr>
+          <tr><td>⛵ <b>Luka</b></td><td>+3 boda ako ima barem 1 susjedno slobodno more.</td></tr>
+          <tr><td>🚜 <b>Farma</b></td><td>+3 uz Žitno polje, +2 uz Jezero, +2 uz Selo.</td></tr>
+          <tr><td>🗼 <b>Svjetionik</b></td><td>+4 uz slobodno more/obalu, +2 uz Luku, +2 uz Selo.</td></tr>
+          <tr><td>🏰 <b>Dvorac</b></td><td>+4 uz Planinu, +2 uz Šumu, +2 uz Selo.</td></tr>
+        `;
+      } else {
+        tbody.innerHTML = `
+          <tr><td>🌲 <b>Forest</b></td><td>+5 pts for clusters of 4 or more connected forests.</td></tr>
+          <tr><td>⛰️ <b>Mountain</b></td><td>+4 pts if touching at least 2 forests.</td></tr>
+          <tr><td>🌾 <b>Field</b></td><td>Nutrient source for nearby villages and farms.</td></tr>
+          <tr><td>🏡 <b>Village</b></td><td>+3 next to Field, +2 next to Lake, -2 next to Mountain.</td></tr>
+          <tr><td>💧 <b>Lake</b></td><td>Fresh water for nearby villages and farms.</td></tr>
+          <tr><td>⛵ <b>Port</b></td><td>+3 pts if touching open water / coastline.</td></tr>
+          <tr><td>🚜 <b>Farm</b></td><td>+3 next to Field, +2 next to Lake, +2 next to Village.</td></tr>
+          <tr><td>🗼 <b>Lighthouse</b></td><td>+4 facing open water, +2 next to Port, +2 next to Village.</td></tr>
+          <tr><td>🏰 <b>Castle</b></td><td>+4 next to Mountain, +2 next to Forest, +2 next to Village.</td></tr>
+        `;
+      }
+    }
+
+    function toggleLang() {
+      currentLang = currentLang === 'bs' ? 'en' : 'bs';
+      updateStaticText();
+      loadAndDisplayStreak();
+      renderBoard();
+    }
+
+    function openModal(id) {
+      document.getElementById(id).style.display = 'flex';
+    }
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    window.onload = initGame;
+  </script>
+</body>
+</html>
